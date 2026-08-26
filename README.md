@@ -8,7 +8,7 @@ A LangChain ecosystem chatbot ("Chat LangChain Lite") with intentional bugs, bui
 2. **Engine proposes a PR fix** — targets the root cause code and opens a PR on your fork
 3. **Engine proposes offline examples and online evals to add** — expand dataset coverage and monitoring with one click
 4. **Offline evals in CI/CD** — the PR can't merge until eval scores pass a threshold
-5. **Before/after scores in LangSmith** — both "before" and "after" experiments created automatically by CI when Engine opens a PR
+5. **Before/after scores in LangSmith** — CI creates an experiment for the PR branch; the pre-seeded `baseline-*` experiments from `setup.py` serve as the "before" reference
 
 ## The bugs
 
@@ -81,7 +81,7 @@ Runs 11 single-turn queries and 1 multi-turn threaded conversation through the b
 **6. Add GitHub Actions secrets and variables** (for CI/CD)
 
 In your fork:
-- Settings → Secrets and variables → Actions → **Secrets** → add `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_CUSTOM_HEADERS`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, and `LANGSMITH_WORKSPACE_ID`
+- Settings → Secrets and variables → Actions → **Secrets** → add `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, and `LANGSMITH_WORKSPACE_ID`
 - Settings → Secrets and variables → Actions → **Variables** → add `DEMO_PRESENTER`
 
 `DEMO_PRESENTER` should match the presenter name used for the demo setup.
@@ -122,7 +122,7 @@ port powers streaming, thread history, and feedback.
 3. Engine analyzes traces and identifies root causes across prompt and code
 4. Add Engine-suggested offline examples — show ability to edit in annotation queue
 5. Engine opens a PR on your fork
-6. GitHub Actions runs evals on main (before experiment) and the PR branch (after experiment) — after scores pass ✅
+6. GitHub Actions runs evals on the PR branch automatically — scores pass ✅ and the merge unblocks
 7. Merge the PR
 8. Add Engine-suggested online eval
 9. Show the experiments in LangSmith — before/after score comparison
@@ -179,12 +179,17 @@ Six online evaluators are registered by `python -m scripts.setup`: `security_adv
 
 ## CI/CD
 
-`.github/workflows/evals.yml` runs automatically on every PR to `main`.
+`.github/workflows/evals.yml` runs automatically on **every** PR to `main`. Apply the
+`skip-evals` label to opt a PR out; the job then reports as skipped, which GitHub
+counts as a pass for a required status check.
+
+The gate is only real if it is a **required status check** — set that under
+Settings → Branches → branch protection for `main`, requiring **Offline evals
+(mandatory)**. Without it the ❌ is advisory and merge stays clickable.
 
 Add these GitHub Actions secrets to your repo (Settings → Secrets and variables → Actions → Secrets):
 - `ANTHROPIC_API_KEY`
 - `ANTHROPIC_BASE_URL`
-- `ANTHROPIC_CUSTOM_HEADERS`
 - `LANGSMITH_API_KEY`
 - `LANGSMITH_PROJECT`
 - `LANGSMITH_WORKSPACE_ID`
@@ -202,7 +207,34 @@ PR opened → GitHub Actions → run_evals --skip-dataset --threshold 0.7
                                scores ≥ 0.7 → ✅ mergeable
 ```
 
-CI runs evals on both the base branch (creating the "before" experiment) and the PR branch (creating the "after" experiment) in LangSmith automatically. Because `--skip-dataset` fetches the existing dataset from LangSmith by name, any examples Engine adds to the dataset are included in the eval run automatically.
+CI runs evals on the PR branch, creating one experiment per run in LangSmith. The `baseline-*` experiments seeded by `setup.py` provide the "before" reference for comparison. Because `--skip-dataset` fetches the existing dataset from LangSmith by name, any examples Engine adds to the dataset are included in the eval run automatically.
+
+## Enterprise controls
+
+The eval gate is only a governance story if agent teams can't weaken it. Two
+boundaries make that real:
+
+**Repo side — CODEOWNERS.** `.github/CODEOWNERS` marks the gate workflow and the
+evaluator suite as platform-owned. A team can't lower the threshold or swap the
+evaluators in its own PR; those paths require platform review.
+
+**LangSmith side — RBAC.** The golden dataset and the mandatory online
+evaluators are read-only to agent builders. A custom `agent-builder` role gets:
+
+| Capability | Permission | Builder |
+|---|---|:--:|
+| Run evals against the golden dataset | `datasets:read`, `datasets:download` | ✓ |
+| Create experiments (required to run evals) | `projects:create` | ✓ |
+| See the mandatory evaluators | `rules:read` | ✓ |
+| Modify or delete the golden dataset | `datasets:update`, `datasets:delete` | ✗ |
+| Edit or disable the evaluators | `rules:update`, `rules:delete` | ✗ |
+
+Builders can run the suite and see exactly why they failed; they cannot move the
+bar. Custom roles are an Enterprise RBAC feature — see
+[Role-based access control](https://docs.langchain.com/langsmith/rbac).
+
+For the full demo script covering both eval loops and this control model, see
+[`EVAL_DEMO_TALKTRACK.md`](EVAL_DEMO_TALKTRACK.md).
 
 ## Repo structure
 
@@ -232,8 +264,8 @@ scripts/
 └── cleanup.py            # resets demo to clean state after presentation
 
 .github/workflows/
-└── evals.yml                 # CI/CD: offline evals on PRs to main, gated on the
-                              # manually-applied 'run-evals' label
+└── evals.yml                 # CI/CD: offline evals on every PR to main. Platform-
+                              # every PR to main; `skip-evals` label opts out
 
 web/
 └── app.py           # Chat LangChain Lite UI (FastHTML). Mounted onto the graph

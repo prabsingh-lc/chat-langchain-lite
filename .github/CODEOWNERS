@@ -7,7 +7,7 @@
 # This is the repo-side half of the control. The LangSmith half is RBAC: the
 # golden dataset and the online evaluators are read-only to the
 # `agent-builder` role (datasets:read + rules:read, no update/delete).
-# See docs/ENTERPRISE_CONTROLS.md.
+# See EVAL_DEMO_TALKTRACK.md.
 
 /.github/workflows/evals.yml   @prabsingh-lc
 /.github/CODEOWNERS            @prabsingh-lc
