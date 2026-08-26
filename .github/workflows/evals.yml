@@ -41,6 +41,9 @@ jobs:
       LANGSMITH_PROJECT: ${{ secrets.LANGSMITH_PROJECT }}
       LANGSMITH_WORKSPACE_ID: ${{ secrets.LANGSMITH_WORKSPACE_ID }}
       DEMO_PRESENTER: ${{ vars.DEMO_PRESENTER }}
+      # Surfaces the PR in the LangSmith Experiments panel as filterable
+      # metadata, so an experiment row answers "which PR was this?"
+      PR_NUMBER: ${{ github.event.pull_request.number }}
       LANGSMITH_TRACING: "true"
     steps:
       # On a PR, evaluate the PR head. On a manual dispatch, evaluate whatever

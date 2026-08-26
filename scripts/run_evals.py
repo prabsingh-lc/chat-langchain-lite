@@ -22,6 +22,49 @@ from evals.dataset import DATASET_NAME, DEMO_PRESENTER
 PROJECT_NAME = os.getenv("LANGSMITH_PROJECT", "chat-lc-lite")
 
 
+
+def _git(*args: str) -> str | None:
+    """Read local git state; returns None outside a repo."""
+    import subprocess
+    try:
+        out = subprocess.run(["git", *args], capture_output=True, text=True, timeout=5)
+        return out.stdout.strip() or None if out.returncode == 0 else None
+    except Exception:
+        return None
+
+
+def experiment_metadata(threshold: float | None) -> dict:
+    """Provenance for the experiment, so the Experiments panel answers
+    "which commit was this, and did the gate pass?" without leaving LangSmith.
+
+    In CI these come from the GitHub Actions context; locally they fall back to
+    the working tree. Every value lands as a filterable metadata column.
+    """
+    in_ci = os.getenv("GITHUB_ACTIONS") == "true"
+    sha = os.getenv("GITHUB_SHA") or _git("rev-parse", "HEAD")
+    branch = os.getenv("GITHUB_HEAD_REF") or os.getenv("GITHUB_REF_NAME") or _git("rev-parse", "--abbrev-ref", "HEAD")
+    md = {
+        "demo": "true",
+        "demo_type": "chat-lc-lite",
+        "source": "ci" if in_ci else "local",
+        "git_branch": branch,
+        "git_sha": sha,
+        "git_sha_short": (sha or "")[:8] or None,
+        "git_dirty": bool(_git("status", "--porcelain")) if not in_ci else False,
+        "threshold": threshold,
+    }
+    repo = os.getenv("GITHUB_REPOSITORY")
+    run_id = os.getenv("GITHUB_RUN_ID")
+    pr = os.getenv("PR_NUMBER") or ""
+    if pr.isdigit():
+        md["pr_number"] = int(pr)
+        if repo:
+            md["pr_url"] = f"https://github.com/{repo}/pull/{pr}"
+    if repo and run_id:
+        md["ci_run_url"] = f"https://github.com/{repo}/actions/runs/{run_id}"
+    return {k: v for k, v in md.items() if v is not None}
+
+
 def run_agent_on_example(inputs: dict) -> dict:
     from agent.agent import invoke_agent
     question = (inputs.get("question") or "").strip()
@@ -41,7 +84,7 @@ def run_agent_on_example(inputs: dict) -> dict:
     return {"output": result["output"], "tools_called": result.get("tools_called", [])}
 
 
-def run_evaluation(experiment_prefix: str) -> dict:
+def run_evaluation(experiment_prefix: str, threshold: float | None = None) -> dict:
     from langsmith import evaluate
     from evals.evaluators import assertion_evaluator
 
@@ -52,7 +95,7 @@ def run_evaluation(experiment_prefix: str) -> dict:
         data=DATASET_NAME,
         evaluators=[assertion_evaluator],
         experiment_prefix=experiment_prefix,
-        metadata={"demo": "true", "demo_type": "chat-lc-lite"},
+        metadata=experiment_metadata(threshold),
     )
 
     # One feedback per example: assertion_evaluator returns
@@ -67,6 +110,24 @@ def run_evaluation(experiment_prefix: str) -> dict:
 
     overall = sum(per_example) / len(per_example) if per_example else 0.0
     n = len(per_example)
+
+    # Stamp the gate verdict onto the experiment so the Experiments panel shows
+    # pass/fail per commit, not just a number the viewer has to compare by eye.
+    if threshold is not None:
+        try:
+            from langsmith import Client
+            exp_name = getattr(results, "experiment_name", None)
+            if exp_name:
+                client = Client()
+                proj = next((p for p in client.list_projects(name=exp_name)), None)
+                if proj:
+                    client.update_project(
+                        proj.id,
+                        metadata={**(proj.metadata or {}),
+                                  "gate": "PASS" if overall >= threshold else "FAIL"},
+                    )
+        except Exception as e:  # never fail a run over bookkeeping
+            print(f"  (could not stamp gate verdict: {type(e).__name__})")
     print(f"\nResults:")
     print(f"  assertions_pass_rate  {overall:.2f}  (avg across {n} examples)")
     return {"assertions_pass_rate": overall, "__overall__": overall}
@@ -189,7 +250,7 @@ def main():
         print(f"Preparing dataset '{DATASET_NAME}'...")
         create_or_update_dataset()
 
-    scores = run_evaluation(experiment_prefix=args.experiment_prefix)
+    scores = run_evaluation(experiment_prefix=args.experiment_prefix, threshold=args.threshold)
 
     if args.setup_online_eval:
         setup_online_eval()
