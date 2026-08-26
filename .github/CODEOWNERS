@@ -1,0 +1,14 @@
+# ─── Platform-owned paths ─────────────────────────────────────────────────────
+# These files define the central, mandatory quality gate every agent must pass.
+# They are owned by the platform team, NOT by agent builders. Any PR touching
+# them requires platform review — an agent team cannot lower the threshold,
+# swap out the evaluator suite, or disable the gate on its own.
+#
+# This is the repo-side half of the control. The LangSmith half is RBAC: the
+# golden dataset and the online evaluators are read-only to the
+# `agent-builder` role (datasets:read + rules:read, no update/delete).
+# See docs/ENTERPRISE_CONTROLS.md.
+
+/.github/workflows/evals.yml   @prabsingh-lc
+/.github/CODEOWNERS            @prabsingh-lc
+/evals/                        @prabsingh-lc
