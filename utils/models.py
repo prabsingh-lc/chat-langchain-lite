@@ -73,6 +73,17 @@ model = init_chat_model(
     temperature=0,
 )
 
+
+def anthropic_client_kwargs() -> dict:
+    """Connection kwargs for a raw `anthropic.Anthropic()` client.
+
+    Evaluator judges build their own client rather than going through the
+    LangChain wrapper above. Routing them here keeps every model call in the
+    process on one route, so CI needs only the credential that route uses.
+    """
+    return {"base_url": _base or None, "api_key": _key}
+
+
 # --- Alternatives -------------------------------------------------------------
 # Direct OpenAI:   model = init_chat_model("openai:gpt-4.1-mini")
 # Direct Anthropic: unset ANTHROPIC_BASE_URL; the call above is unchanged.

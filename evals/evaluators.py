@@ -14,7 +14,13 @@ _anthropic_client = None
 def _get_anthropic_client() -> Anthropic:
     global _anthropic_client
     if _anthropic_client is None:
-        _anthropic_client = Anthropic()
+        # Same route as the agent (see utils.models). A bare Anthropic() here
+        # would read ANTHROPIC_API_KEY from the environment and bypass the
+        # gateway, which meant CI needed a second credential purely for the
+        # judge — and failed with an opaque "Could not resolve authentication
+        # method" when it was absent.
+        from utils.models import anthropic_client_kwargs
+        _anthropic_client = Anthropic(**anthropic_client_kwargs())
     return _anthropic_client
 
 
