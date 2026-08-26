@@ -57,21 +57,44 @@ else:
             "For a direct Anthropic connection set AGENT_ROUTE=direct."
         ) from None
 
+# Model id is resolved per call, not frozen at import. setup.py seeds one
+# baseline experiment per model by setting CHAT_LANGCHAIN_LITE_MODEL inside a
+# loop in a single process — a module-level singleton silently ignores that,
+# which produced "haiku vs sonnet" experiments that were really the same model
+# twice (identical latency and cost, differing only in trace metadata).
+DEFAULT_MODEL = "claude-sonnet-4-6"
+
+
+def resolve_model_id() -> str:
+    """The model id for the next call, honouring both override env vars."""
+    return (
+        os.getenv("CHAT_LANGCHAIN_LITE_MODEL")
+        or os.getenv("AGENT_MODEL")
+        or DEFAULT_MODEL
+    )
+
+
+def get_model(model_id: str | None = None):
+    """Build a chat model on the active route. Call per agent build."""
+    return init_chat_model(
+        model=model_id or resolve_model_id(),
+        model_provider="anthropic",
+        base_url=_base or None,
+        api_key=_key,
+        max_tokens=300,  # Bug 4 (intentional): truncates complex answers
+        temperature=0,
+    )
+
+
 # MODEL_CONFIG is the single source the frontend's Gateway pane reads.
 MODEL_CONFIG = {
-    "model": os.getenv("AGENT_MODEL", "claude-sonnet-4-6"),
+    "model": resolve_model_id(),
     "provider": "anthropic",
     "base_url": _base,
 }
 
-model = init_chat_model(
-    model=MODEL_CONFIG["model"],
-    model_provider=MODEL_CONFIG["provider"],
-    base_url=_base or None,
-    api_key=_key,
-    max_tokens=300,  # Bug 4 (intentional): truncates complex technical answers
-    temperature=0,
-)
+# Back-compat singleton for callers that just want "the" model.
+model = get_model()
 
 
 def anthropic_client_kwargs() -> dict:

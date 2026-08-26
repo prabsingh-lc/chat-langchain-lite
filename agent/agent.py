@@ -11,7 +11,7 @@ from deepagents.backends.context_hub import ContextHubBackend
 from agent.tools import TOOLS
 from context import CONTEXT_HUB_REPO, get_prompt
 from utils.streaming import iter_text
-from utils.models import model
+from utils.models import get_model, resolve_model_id
 
 # AGENTS.md is the agent's system prompt — pulled fresh from LangSmith
 # Context Hub at module import.
@@ -27,7 +27,7 @@ _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 
 def _model_id() -> str:
-    return os.getenv("CHAT_LANGCHAIN_LITE_MODEL") or _DEFAULT_MODEL
+    return resolve_model_id()
 
 
 # The Context Hub-backed filesystem holds the agent's OWN context (AGENTS.md,
@@ -46,7 +46,7 @@ def build_agent():
         # temperature=0 for deterministic, reproducible demo behavior — the
         # intentional bugs (tone, scope, truncation) come from the prompt and
         # max_tokens, not sampling, so pinning temperature keeps traces consistent.
-        model=model,
+        model=get_model(_model_id()),
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
         middleware=[_readonly_context_hub_fs()],
