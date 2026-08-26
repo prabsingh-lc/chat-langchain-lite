@@ -60,7 +60,11 @@ AGENT_ROUTE=direct uv run langgraph dev
 
 *"This is the golden dataset. It's the contract for what 'working' means for this agent — every example is a case we've decided we must not regress on."*
 
-*"Three things matter about how this is managed. First, provenance: these didn't come from someone's imagination, they came from real traces. Second, it's versioned — every edit creates a new version, and I can tag one. This one's tagged `baseline`."*
+*"Three things matter about how this is managed. First, provenance: these didn't come from someone's imagination, they came from real traces. Second, it's versioned — every edit creates a new version, and I can tag one."*
+
+→ **Versions** tab: `baseline` is pinned to the original 3 examples; `latest` has 6
+
+*"The tag `baseline` still points at where we started — three cases. Today it's six. The three we added came from production behaviour the original suite never covered."*
 
 → Click **Versions** tab → show the `baseline` tag
 
@@ -81,6 +85,12 @@ AGENT_ROUTE=direct uv run langgraph dev
 - **Human** — the tiebreaker, via annotation queues. That's Act 2.
 
 *"Ours returns a pass rate across assertions per example — so a score isn't a vibe, it's 'this example met 4 of 5 stated requirements.'"*
+
+→ Open the `baseline`-tagged experiments: both score **1.00**
+
+*"Here's the uncomfortable part. Against our original suite, this agent scores a perfect 1.00. Green across the board. And the agent is broken — it answers questions about football, it opens with 'Hey there' and an emoji, and it tells you LangGraph runs on Python 3.7."*
+
+*"That's not a broken test suite. That's a test suite that only tests what someone thought of in advance. Which is every test suite, on day one."*
 
 > 🎙️ **Expect the pushback:** *"Isn't an LLM grading an LLM circular?"*
 > Answer: the judge is a different, cheaper model, doing a **narrower** task — a binary check against explicit criteria, not open-ended generation. And you validate the judge against human labels from the annotation queue. That's exactly what SME review is for.
@@ -113,6 +123,8 @@ AGENT_ROUTE=direct uv run langgraph dev
 
 *"Every PR to main runs the eval suite against the golden dataset. Not on demand — every PR. The threshold is 0.7."*
 
+*"With the three production cases added, this agent scores **0.50**. The gate is 0.7. So:"*
+
 → Scroll the PR to the checks section, show the ❌
 
 *"This PR scored below threshold. And look —"*
@@ -125,7 +137,9 @@ AGENT_ROUTE=direct uv run langgraph dev
 
 *"And the CI run isn't a black box. It produced a real experiment in LangSmith, so when the gate fails you're one click from the exact examples that failed and why."*
 
-→ Now push the fix (or merge the passing PR) → check goes ✅ → merge
+→ Now push the fix (two one-line changes in `agent/tools.py`) → CI re-runs → **0.83** → ✅
+
+*"Two lines. 0.50 to 0.83, back over the line, merge unblocks."*
 
 *"That's the release gate. The dataset defines the standard, CI enforces it, and no one has to remember to care."*
 
@@ -145,7 +159,7 @@ AGENT_ROUTE=direct uv run langgraph dev
 
 → **Evaluators** tab on the project → show sampling rate
 
-*"Sampling is the cost lever. This one's at 100% because it's a demo. In production you'd run your cheap safety checks at 100% and your expensive judges at 10%."*
+*"Sampling is the cost lever. Five of these run at 100%; `response_completeness` runs at 10%. In production you run your cheap safety checks on everything and your expensive judges on a sample."*
 
 > ⚠️ **Know this one:** when an online evaluator runs on a trace, that trace auto-upgrades to extended data retention, which affects trace pricing. Sampling controls both judge cost *and* retention cost. Mentioning this unprompted reads as operator credibility.
 
@@ -183,11 +197,11 @@ AGENT_ROUTE=direct uv run langgraph dev
 
 ### 2.4 Annotation Queue & SME Review (~3 min)
 
-→ **Annotation Queues** → open the queue
+→ **Annotation Queues** → `sme-review-prabhjot-aug26`
 
 *"The alert told us something's wrong. Now a human decides what."*
 
-*"Low-scoring traces route into an annotation queue. This is built for the subject-matter expert — the claims adjuster, the clinician, the support lead. Not the engineer."*
+*"Low-scoring traces route in automatically — there's a rule, `route-failures-to-sme`, watching for any trace where the scope judge scored zero. This is built for the subject-matter expert — the claims adjuster, the clinician, the support lead. Not the engineer."*
 
 → Walk one item: read the trace, apply a score, leave a note
 
