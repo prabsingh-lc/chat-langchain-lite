@@ -266,7 +266,6 @@ python -m scripts.cleanup           # reset between demos
 | Thing | Value |
 |---|---|
 | Golden dataset | `chat-lc-lite-scope-<DEMO_PRESENTER>` |
-| Tool dataset | `chat-lc-lite-tools-<DEMO_PRESENTER>` |
 | Version tag | `baseline` |
 | Gate threshold | `0.7` (`.github/workflows/evals.yml`) |
 | Required check name | **Offline evals (mandatory)** |

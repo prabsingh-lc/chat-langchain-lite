@@ -168,12 +168,20 @@ def setup_dataset() -> str:
     # (create_or_update_tool_adherence_dataset) but not seeded for the demo.
 
     ls_client = Client()
-    ls_client.update_dataset_tag(
-        dataset_name=DATASET_NAME,
-        as_of=datetime.now(timezone.utc),
-        tag="baseline",
-    )
-    print(f"  Tagged dataset version as 'baseline'.")
+    # Tag the newest *existing* version, not `now`. Passing a wall-clock
+    # timestamp later than every recorded version leaves the tag unresolvable
+    # (reading it back 404s) while this call still appears to succeed.
+    dataset = ls_client.read_dataset(dataset_name=DATASET_NAME)
+    versions = list(ls_client.list_dataset_versions(dataset_id=dataset.id, limit=1))
+    if versions:
+        ls_client.update_dataset_tag(
+            dataset_name=DATASET_NAME,
+            as_of=versions[0].as_of,
+            tag="baseline",
+        )
+        print(f"  Tagged dataset version {versions[0].as_of} as 'baseline'.")
+    else:
+        print("  Warning: no dataset versions found; 'baseline' tag not applied.")
     return DATASET_NAME
 
 
