@@ -33,11 +33,10 @@ jobs:
       !contains(github.event.pull_request.labels.*.name, 'skip-evals')
     runs-on: ubuntu-latest
     env:
-      # Model routing. The agent code uses a plain constructor and reads these
-      # from the environment, so the same code runs locally (shell vars) and
-      # here (Actions secrets) with no branching.
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+      # Model routing defaults to the LangSmith Gateway, which authenticates
+      # with LANGSMITH_API_KEY — so that key alone is enough here. The two
+      # ANTHROPIC_* values are only read when AGENT_ROUTE=direct; leave them
+      # unset unless you deliberately want CI on a direct connection.
       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
       LANGSMITH_PROJECT: ${{ secrets.LANGSMITH_PROJECT }}
       LANGSMITH_WORKSPACE_ID: ${{ secrets.LANGSMITH_WORKSPACE_ID }}

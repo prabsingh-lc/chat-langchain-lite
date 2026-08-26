@@ -15,7 +15,7 @@
 | 2 | Sync deps | `uv sync` |
 | 3 | Create project, datasets, online evaluators | `python -m scripts.setup` |
 | 4 | Populate traces + threads | `python -m scripts.generate_traces` |
-| 5 | GitHub → Settings → Secrets and variables → Actions | secrets: `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, `LANGSMITH_WORKSPACE_ID`; variable: `DEMO_PRESENTER` |
+| 5 | GitHub → Settings → Secrets and variables → Actions | secrets: `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, `LANGSMITH_WORKSPACE_ID`; variable: `DEMO_PRESENTER`. No Anthropic secrets needed on the default gateway route |
 | 6 | GitHub → Actions tab → enable workflows | forks disable Actions by default |
 | 7 | GitHub → Settings → Branches → protect `main` | require status check **“Offline evals (mandatory)”** |
 | 8 | **Create an annotation queue** in LangSmith UI | `setup.py` does *not* create one |
