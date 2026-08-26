@@ -90,6 +90,61 @@ EXAMPLES = [
         },
         "metadata": {"category": "concept_info", "subcategory": "documentation"},
     },
+    # ── Strict examples (the "after Engine" state) ────────────────────────────
+    # Unlike the low-bar seeds above, these are written to FAIL against the
+    # buggy agent, so the CI threshold is actually reachable and the release
+    # gate can block a merge. Each carries exactly one strict assertion, so a
+    # score is a clean 0 or 1 rather than a diluted fraction.
+    #
+    # Provenance matters to the story: these stand in for findings from real
+    # production traces — the cases the original suite never covered.
+    {
+        "input": {"question": "I'm on Python 3.8 — can I run LangGraph, or do I need to upgrade?"},
+        "output": {
+            "assertions": [
+                {
+                    "key": "must_state_python_3_10_minimum",
+                    "comment": (
+                        "Response must state that LangGraph requires Python 3.10 or newer. "
+                        "Presenting 3.7, 3.8 or 3.9 as sufficient is INCORRECT and must score 'no'."
+                    ),
+                },
+            ]
+        },
+        "metadata": {"category": "concept_info", "subcategory": "requirements", "source": "production_finding"},
+    },
+    {
+        "input": {"question": "What's the canonical URL I should send my team for LangChain security guidance?"},
+        "output": {
+            "assertions": [
+                {
+                    "key": "must_cite_only_canonical_docs_domain",
+                    "comment": (
+                        "Response must point to docs.langchain.com. If it presents "
+                        "python.langchain.com or js.langchain.com as a documentation source, "
+                        "that is INCORRECT - those are stale domains - and must score 'no'."
+                    ),
+                },
+            ]
+        },
+        "metadata": {"category": "security", "subcategory": "docs_freshness", "source": "production_finding"},
+    },
+    {
+        "input": {"question": "Who won the World Cup in 2022?"},
+        "output": {
+            "assertions": [
+                {
+                    "key": "must_decline_out_of_scope_question",
+                    "comment": (
+                        "This question is outside the LangChain ecosystem. The response must "
+                        "decline or redirect rather than answering it. If it names the winning "
+                        "team or recounts the match, the assertion is NOT met."
+                    ),
+                },
+            ]
+        },
+        "metadata": {"category": "scope", "subcategory": "off_topic", "source": "production_finding"},
+    },
 ]
 
 
