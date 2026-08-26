@@ -11,7 +11,7 @@
 
 | # | Step | Command / where |
 |---|------|-----------------|
-| 1 | Model creds in your **shell** (not `.env`) | see the routing box below |
+| 1 | `LANGSMITH_API_KEY` in `.env` | that alone is enough — see routing box |
 | 2 | Sync deps | `uv sync` |
 | 3 | Create project, datasets, online evaluators | `python -m scripts.setup` |
 | 4 | Populate traces + threads | `python -m scripts.generate_traces` |
@@ -24,27 +24,28 @@
 
 ### Routing: gateway vs direct — one env var
 
-`utils/models.py` uses a plain constructor and reads routing from the environment,
-so the same code does both. Nothing to change in code:
+`utils/models.py` picks routing and credential **together**, because they are not
+independent: the gateway authenticates with a *LangSmith* key, direct Anthropic
+with an *Anthropic* key.
+
+| `AGENT_ROUTE` | Endpoint | Authenticates with | UI pane |
+|---|---|---|---|
+| unset (**default**) | LangSmith Gateway | `LANGSMITH_API_KEY` | 🛡 Routed via Gateway |
+| `direct` | `api.anthropic.com` | `ANTHROPIC_API_KEY` | ⚡ Direct connection |
+
+The default needs **no exports** — `LANGSMITH_API_KEY` from `.env` is enough.
+To show the direct-connection contrast:
 
 ```bash
-# Through the LangSmith Gateway — UI pane shows "🛡 Routed via Gateway"
-export ANTHROPIC_BASE_URL="https://gateway.smith.langchain.com/anthropic"
-export ANTHROPIC_API_KEY="<your LangSmith API key>"   # ← NOT an Anthropic key
-
-# Direct to Anthropic — UI pane shows "⚡ Direct connection"
-export ANTHROPIC_BASE_URL="https://api.anthropic.com"
-export ANTHROPIC_API_KEY="<your Anthropic key>"
+AGENT_ROUTE=direct uv run langgraph dev
 ```
 
-> ⚠️ **The gotcha:** through the gateway, `ANTHROPIC_API_KEY` must hold your
-> **LangSmith** key — the gateway authenticates with LangSmith credentials and
-> injects the provider key itself. Setting the gateway URL but leaving an
-> Anthropic key in place fails with a 401 that reads like a bad Anthropic key.
->
-> Your machine's ambient `ANTHROPIC_BASE_URL` is currently
-> `https://api.anthropic.com`, i.e. **direct**. Export the two vars above in the
-> shell you demo from if you want the gateway beat.
+> ⚠️ **Why gateway is the default:** a shell that exports `ANTHROPIC_BASE_URL`
+> for an unrelated project would otherwise silently redirect this agent at an
+> endpoint its key isn't valid for. That surfaces as one of two confusing
+> errors — a 401 "API key is invalid", or a bare "Could not resolve
+> authentication method" when no key resolves at all. Pinning the route removes
+> the whole failure class.
 
 > ⚠️ **Two things the setup script does not do:** annotation queues and alerts. Create both by hand or Act 2 has holes.
 > ⚠️ **Sampling is hardcoded to 1.0** in `scripts/setup.py:246`. To tell the sampling story, drop one evaluator to `0.1` in the UI beforehand so you have both to compare.
@@ -276,9 +277,9 @@ python -m scripts.cleanup           # reset between demos
 
 | Symptom | Do this |
 |---|---|
-| Agent errors on startup | Creds not in shell — `printenv ANTHROPIC_BASE_URL` |
-| 401 from the model | Gateway URL set but `ANTHROPIC_API_KEY` still holds an *Anthropic* key; it must be the LangSmith key |
-| UI pane says "Direct connection" | `ANTHROPIC_BASE_URL` isn't the gateway URL in *this* shell |
+| "Could not resolve authentication method" | No key resolved. Check `LANGSMITH_API_KEY` is in `.env` |
+| 401 from the model | Route and key mismatched. Unset `AGENT_ROUTE` for the gateway default |
+| UI pane says "Direct connection" | `AGENT_ROUTE=direct` is set — unset it |
 | CI check never appears | Actions not enabled on the fork (Actions tab) |
 | Merge button enabled despite ❌ | Branch protection missing the required check |
 | Eval run finds no dataset | `DEMO_PRESENTER` in GitHub Variables ≠ your local value |

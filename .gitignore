@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 .demo_state.json
 .venv/
 __pycache__/
